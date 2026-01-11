@@ -1,9 +1,5 @@
 # Collaborative_Research_Paper_Finder
 
-Below is a **clean, properly formatted GitHub README.md** written in **Markdown**, ready to copy-paste directly into your repository.
-
-````markdown
-# Collaborative Research Paper Finder (A2A)
 
 ## Overview
 The **Collaborative Research Paper Finder** is a multi-agent system (MAS) designed to automate the initial stages of academic literature review. By leveraging the **ArXiv API** and **Large Language Models (LLMs)**, the system orchestrates a team of specialized autonomous agents to search for, filter, analyze, and synthesize research papers.
