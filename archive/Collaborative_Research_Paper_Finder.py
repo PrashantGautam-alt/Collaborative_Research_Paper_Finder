@@ -8,7 +8,7 @@ from google import genai
 
 
 # ── API Key ────────────────────────────────────────────────────────────────────
-api_key = "AIzaSyCHfUsfF-iqtiMgcNO_vsUonbT4I6Fx8Bk"
+api_key = "YOUR_API_KEY"
 
 # Connect to the Gemini AI service using your key
 # We create one shared client so we are not reconnecting on every single request
