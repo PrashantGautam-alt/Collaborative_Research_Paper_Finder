@@ -1,185 +1,132 @@
-# Collaborative_Research_Paper_Finder
+# Collaborative Research Paper Finder
 
-
-## Overview
-The **Collaborative Research Paper Finder** is a multi-agent system (MAS) designed to automate the initial stages of academic literature review. By leveraging the **ArXiv API** and **Large Language Models (LLMs)**, the system orchestrates a team of specialized autonomous agents to search for, filter, analyze, and synthesize research papers.
-
-The core innovation of this project is the **Agent-to-Agent (A2A) communication architecture**. Instead of relying on a single monolithic prompt, tasks are distributed across distinct agents that operate in a **sequential state pipeline**, passing structured data and reasoning logs between each other before presenting the final output to the user.
+A multi-agent AI system that automates academic literature search. Given a research topic, five specialized agents work in sequence to expand the query, search Semantic Scholar, rank results by relevance, summarize each paper, and compile a structured report — all displayed through a Streamlit interface.
 
 ---
 
-## System Architecture
+## How It Works
 
-The application implements a **Sequential State Pipeline** composed of five specialized agents:
+The system runs a sequential pipeline of five agents:
 
-1. **Search Agent**  
-   Interfaces with the ArXiv API to retrieve raw paper metadata based on user queries.
-
-2. **Filter Agent**  
-   Acts as a gatekeeper by analyzing titles and abstracts to select only the most semantically relevant papers, reducing computational overhead for downstream agents.
-
-3. **Summary Agent**  
-   Processes selected abstracts to extract structured research components:
-   - Methodology  
-   - Key Results  
-   - Limitations  
-
-4. **Comparison Agent**  
-   Aggregates individual paper analyses to generate a *State-of-the-Art* synthesis, identifying trends, patterns, and methodological differences across papers.
-
-5. **Presentation Agent**  
-   Renders the user interface, displaying:
-   - Inter-agent communication logs (A2A logs)
-   - Final comparative summaries and structured paper cards
+1. **Query Expander** — Uses Gemini to generate three alternative phrasings of the user's topic, widening the search surface.
+2. **Search Agent** — Queries Semantic Scholar for each phrasing and deduplicates the combined results by paper ID.
+3. **Ranker Agent** — Scores each paper 1–10 for relevance to the original query and returns the top 7.
+4. **Summarizer Agent** — Generates a structured 3-sentence summary for each paper in parallel using `asyncio`.
+5. **Report Compiler** — Formats the results into a markdown report and a downloadable JSON file.
 
 ---
 
-## Features
+## Tech Stack
 
-- **Autonomous Literature Search**  
-  Automated querying of the ArXiv database.
-
-- **Intelligent Filtering**  
-  LLM-based relevance scoring to eliminate low-quality or irrelevant results.
-
-- **Structured Summarization**  
-  Extraction of specific research components rather than generic summaries.
-
-- **Comparative Synthesis**  
-  Side-by-side comparison and high-level synthesis of multiple papers.
-
-- **Transparent Logic**  
-  Real-time display of agent message passing, improving explainability and trust.
+| Component | Technology |
+|---|---|
+| Interface | Streamlit |
+| LLM | Google Gemini (`gemini-2.5-flash-lite`) |
+| Search API | Semantic Scholar Graph API |
+| Language | Python 3.8+ |
 
 ---
 
-## Technical Stack
+## Installation
 
-- **Language:** Python 3.8+  
-- **Interface:** Streamlit  
-- **LLM Integration:** OpenAI API (GPT-4o-mini or compatible)  
-- **Data Source:** ArXiv API  
-- **Data Manipulation:** Pandas  
+### 1. Clone the repository
 
----
-
-## Installation and Setup
-
-### Prerequisites
-- Python 3.8 or higher
-- A valid OpenAI API key
-
----
-
-### Step 1: Clone the Repository
 ```bash
-git clone https://github.com/your-username/a2a-research-finder.git
-cd a2a-research-finder
-````
+git clone https://github.com/your-username/collaborative-research-paper-finder.git
+cd collaborative-research-paper-finder
+```
 
----
-
-### Step 2: Set Up a Virtual Environment (Recommended)
+### 2. Create and activate a virtual environment
 
 ```bash
 python -m venv venv
 ```
 
-**Activate the environment:**
-
-* **Windows**
-
-```bash
-venv\Scripts\activate
-```
-
-* **macOS / Linux**
-
+**macOS / Linux**
 ```bash
 source venv/bin/activate
 ```
 
----
+**Windows**
+```bash
+venv\Scripts\activate
+```
 
-### Step 3: Install Dependencies
+### 3. Install dependencies
 
 ```bash
-pip install streamlit openai arxiv pandas
+pip install -r requirements.txt
 ```
 
 ---
 
-### Step 4: Configuration
+## Configuration
 
-You must configure your OpenAI API key.
-
-#### Option A: Environment Variable (Recommended)
+API keys are loaded from a `.env` file. A template is provided.
 
 ```bash
-export OPENAI_API_KEY="sk-..."
+cp .env.example .env
 ```
 
-#### Option B: Direct Configuration
+Open `.env` and fill in your keys:
 
-Open `app.py` and modify the client initialization:
-
-```python
-client = OpenAI(api_key="sk-...")
+```
+GEMINI_API_KEY=your_gemini_key_here
+SEMANTIC_SCHOLAR_API_KEY=your_semantic_scholar_key_here
 ```
 
-**Warning:** Do not commit API keys to public repositories.
+- **Gemini API key** — free at [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
+- **Semantic Scholar API key** — free at [https://www.semanticscholar.org/product/api](https://www.semanticscholar.org/product/api) (optional, but increases rate limit from 1 to 100 requests/sec)
+
+The `.env` file is listed in `.gitignore` and will not be committed.
 
 ---
 
 ## Usage
 
-Start the Streamlit application:
-
 ```bash
 streamlit run app.py
 ```
 
-The app will launch in your browser at:
+The app opens in your browser at `http://localhost:8501`.
 
-```
-http://localhost:8501
-```
-
-### Workflow
-
-1. Enter a research topic (e.g., *"Deep Learning for Time Series Forecasting"*).
-2. Click **Start Research Agents**.
-3. Observe agent communication logs in the sidebar.
-4. Review the structured paper summaries and comparative synthesis.
+1. Enter a research topic.
+2. Click **Find Papers**.
+3. Wait for the pipeline to complete — each agent step is shown live.
+4. Review the ranked paper summaries.
+5. Download the report as a JSON file if needed.
 
 ---
 
 ## Project Structure
 
-```plaintext
-a2a-research-finder/
-├── Collaborative_Research_Paper_Finder.py              # Main application logic and agent implementations
-├── requirements.txt    # Python dependencies
-└── README.md           # Project documentation
+```
+collaborative-research-paper-finder/
+│
+├── app.py                    # Streamlit UI — entry point
+├── pipeline.py               # Orchestrator — runs all 5 agents in sequence
+│
+├── agents/
+│   ├── query_expander.py     # Agent 1: expands the user query into 4 phrasings
+│   ├── search_agent.py       # Agent 2: searches Semantic Scholar, deduplicates
+│   ├── ranker_agent.py       # Agent 3: scores papers for relevance, returns top 7
+│   ├── summarizer_agent.py   # Agent 4: generates parallel 3-sentence summaries
+│   └── report_compiler.py   # Agent 5: formats results into markdown and JSON
+│
+├── utils/
+│   ├── gemini_client.py      # Shared Gemini client used by all LLM agents
+│   └── semantic_scholar.py   # Semantic Scholar API wrapper
+│
+├── archive/                  # Original single-file prototype (reference only)
+│
+├── .env.example              # API key template — copy to .env and fill in keys
+├── .gitignore
+├── requirements.txt
+└── README.md
 ```
 
 ---
 
-## Future Roadmap
-
-* **Full PDF Parsing**
-  Integration of PyMuPDF to analyze complete paper texts beyond abstracts.
-
-* **Cyclic Agent Negotiation**
-  Use of LangGraph to allow the Comparison Agent to trigger additional searches if data is insufficient.
-
-* **Vector Storage & Retrieval**
-  Integration of FAISS or Chroma for semantic search and Q&A over retrieved papers.
-
-
-
 ## Disclaimer
 
-This tool uses the ArXiv API but is **not endorsed or certified by ArXiv**.
-LLMs may hallucinate—always verify important citations and claims against the original research papers.
-
+This project uses the Semantic Scholar API but is not affiliated with or endorsed by Semantic Scholar or ArXiv. LLMs may produce inaccurate summaries — always verify claims against the original papers.
