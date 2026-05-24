@@ -2,6 +2,8 @@
 
 A multi-agent AI system that automates academic literature search. Given a research topic, five specialized agents work in sequence to expand the query, search Semantic Scholar, rank results by relevance, summarize each paper, and compile a structured report — all displayed through a Streamlit interface.
 
+Live URL: https://prashantgautam-research-finder.streamlit.app/
+
 ---
 
 ## How It Works
