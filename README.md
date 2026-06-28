@@ -1,64 +1,173 @@
-# Collaborative Research Paper Finder
+# 🔬 Collaborative Research Paper Finder
 
-Tired of manually searching across three different databases for a literature review,
-so I built a pipeline where five specialized agents do it for you.
-Give it a topic, get back ranked papers with structured summaries and a downloadable report.
+[![Live Demo](https://img.shields.io/badge/demo-streamlit-FF4B4B?logo=streamlit)](https://prashantgautam-research-finder.streamlit.app/)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue?logo=python)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-Live: https://prashantgautam-research-finder.streamlit.app/
+**A multi-agent pipeline that turns one research topic into a ranked, summarized literature shortlist.**
+Type a topic; five specialized LLM agents expand it into 4 search angles, pull candidate papers
+from Semantic Scholar, score every paper 1–10 for relevance, and return the **top 7** with
+structured 3-sentence summaries and a downloadable JSON report — in a single click.
+
+The contribution isn't a new model; it's a **clean, fault-tolerant agent orchestration**: every
+LLM step degrades gracefully (a bad JSON response scores 0 and drops out instead of crashing the
+run), and the slow step (summarization) is parallelized with `asyncio`.
+
+> ### ▶️ [Try the live demo](https://prashantgautam-research-finder.streamlit.app/)
+
+![Demo screenshot](docs/demo.png)
+<!-- TODO: add docs/demo.png — a screenshot or GIF of one full run -->
 
 ---
 
-## How It Works
+## What it produces
 
-Sequential pipeline of five agents:
+For the query `attention mechanisms in deep learning`, one run returns a ranked report like:
 
-1. **Query Expander** — Gemini generates three alternative phrasings of your topic, widening the search surface.
-2. **Search Agent** — Queries Semantic Scholar for each phrasing, deduplicates by paper ID.
-3. **Ranker Agent** — Scores each paper 1-10 for relevance, returns the top 7.
-4. **Summarizer Agent** — Generates a 3-sentence structured summary per paper, run in parallel with `asyncio`.
-5. **Report Compiler** — Formats everything into a markdown report and a downloadable JSON.
+| Rank | Paper | Year | Citations | Relevance |
+|-----:|-------|-----:|----------:|:---------:|
+| 1 | Attention Is All You Need | 2017 | 100,000+ | 10/10 |
+| 2 | Neural Machine Translation by Jointly Learning to Align and Translate | 2014 | … | 9/10 |
+| … | … | … | … | … |
+
+…each with a one-line *why it's relevant* and a 3-sentence summary (problem → method → result),
+plus a one-click **JSON download** of the full structured report.
+
+> *Example only — exact papers, citation counts, and scores vary per run and are generated live.*
+
+**Honest limitations**
+- **No quantitative evaluation yet.** Relevance scores are the LLM's own judgment; there is no
+  ground-truth benchmark, precision/recall, or human-rated baseline. Treat it as a smart first
+  pass, not a systematic review.
+- **Summaries can be wrong.** They're LLM-generated from abstracts — always verify against the
+  original paper before citing.
+- **Single source.** Only Semantic Scholar is queried (the earlier arXiv prototype lives in `archive/`).
+- **Recall depends on the abstract.** Papers with no abstract still appear but get weaker scores
+  and summaries.
+- **Rate limits.** Without a Semantic Scholar key you get ~1 req/sec; the pipeline issues 4 searches
+  per run, so cold runs can be slow.
 
 ---
 
-## Stack
+## Architecture
+
+Sequential pipeline, one orchestrator (`pipeline.py`), graceful fallback at every LLM step:
+
+```
+        user topic
+            │
+            ▼
+┌───────────────────────┐
+│ 1. Query Expander      │  Gemini → 3 alt phrasings  ⇒ 4 queries
+└───────────┬───────────┘     (fallback: original query only)
+            ▼
+┌───────────────────────┐
+│ 2. Search Agent        │  Semantic Scholar ×4, limit 8 each
+└───────────┬───────────┘     ⇒ ≤32 papers, deduped by paper_id
+            ▼
+┌───────────────────────┐
+│ 3. Ranker Agent        │  Gemini scores each paper 1–10
+└───────────┬───────────┘     ⇒ sort desc, keep top 7 (failures→0)
+            ▼
+┌───────────────────────┐
+│ 4. Summarizer          │  Gemini ×7 in PARALLEL (asyncio.gather)
+└───────────┬───────────┘     ⇒ 3-sentence summary per paper
+            ▼
+┌───────────────────────┐
+│ 5. Report Compiler     │  pure Python, no LLM
+└───────────┬───────────┘     ⇒ (markdown, JSON dict)
+            ▼
+     Streamlit UI + JSON download
+```
 
 | Component | Technology |
 |---|---|
 | Interface | Streamlit |
-| LLM | Google Gemini (gemini-2.5-flash-lite) |
-| Search | Semantic Scholar Graph API |
-| Language | Python 3.8+ |
+| LLM | Google Gemini (`gemini-2.5-flash-lite`) |
+| Paper search | Semantic Scholar Graph API |
+| Concurrency | `asyncio` (parallel summarization) |
+| Language | Python **3.9+** |
+
+Scoring papers **one at a time** (rather than one giant prompt) is deliberate — it avoids the
+long-context "lost in the middle" failure mode and keeps each judgment independent.
 
 ---
 
-## Setup
+## How to run
 
+**Prerequisites**
+- Python 3.9+
+- A free **Gemini API key** → https://aistudio.google.com/app/apikey *(required)*
+- A free **Semantic Scholar API key** → https://www.semanticscholar.org/product/api
+  *(optional — raises the rate limit from ~1 to ~100 req/sec)*
+
+**Install & run**
 ```bash
-git clone https://github.com/your-username/collaborative-research-paper-finder.git
+git clone https://github.com/<your-username>/collaborative-research-paper-finder.git
 cd collaborative-research-paper-finder
+python -m venv venv && source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env   # then fill in your keys
+cp .env.example .env        # then paste your real keys into .env
 streamlit run app.py
+```
 
-You need two API keys in .env:
-- GEMINI_API_KEY — free at aistudio.google.com
-- SEMANTIC_SCHOLAR_API_KEY — free at semanticscholar.org/product/api
-(optional, but bumps the rate limit from 1 to 100 req/sec)
+**Run the pipeline headless (no UI):**
+```bash
+python pipeline.py          # runs a built-in test query end to end
+```
+
+**Run the tests:**
+```bash
+pip install pytest
+pytest                      # smoke-tests the pipeline with the two APIs mocked
+```
+
+**Caveats**
+- Without `GEMINI_API_KEY` set, the app fails on the first agent — the key is mandatory.
+- Free Gemini and keyless Semantic Scholar both rate-limit; a run makes ~11 LLM calls
+  (1 expand + N rank + 7 summarize) plus 4 searches.
 
 ---
-Project Structure
 
-├── app.py                    # Streamlit UI, entry point
-├── pipeline.py               # runs all 5 agents in sequence
+## File structure
+
+```
+.
+├── app.py                       # Streamlit UI + entry point; renders results, JSON download
+├── pipeline.py                  # Orchestrator: runs all 5 agents in sequence; also runnable headless
 ├── agents/
-│   ├── query_expander.py
-│   ├── search_agent.py
-│   ├── ranker_agent.py
-│   ├── summarizer_agent.py
-│   └── report_compiler.py
-└── utils/
-    ├── gemini_client.py      # shared Gemini client
-    └── semantic_scholar.py   # API wrapper
+│   ├── query_expander.py        # Agent 1 — Gemini turns 1 topic into 4 search phrasings
+│   ├── search_agent.py          # Agent 2 — queries Semantic Scholar, dedupes by paper_id
+│   ├── ranker_agent.py          # Agent 3 — scores each paper 1–10, returns top 7
+│   ├── summarizer_agent.py      # Agent 4 — parallel 3-sentence summaries via asyncio
+│   └── report_compiler.py       # Agent 5 — formats markdown + JSON report (no LLM)
+├── utils/
+│   ├── gemini_client.py         # Shared Gemini client + model constant
+│   └── semantic_scholar.py      # Semantic Scholar Graph API wrapper, fault-tolerant
+├── tests/
+│   └── test_pipeline.py         # Smoke test: full pipeline end to end with both APIs mocked
+├── archive/                     # Earlier single-file arXiv prototype (not used by the app)
+├── requirements.txt             # Python dependencies
+├── .env.example                 # Template for the two API keys
+└── README.md
+```
 
 ---
-Note: LLM summaries may contain inaccuracies. Always verify against the original papers.
+
+## What's next
+- [ ] **Add an evaluation harness** (`evaluate.py`) with a small labeled query set so relevance
+      scores can be measured, not just asserted — this is the single biggest credibility upgrade.
+- [ ] **Multi-source search** — add arXiv / OpenAlex alongside Semantic Scholar and merge.
+- [ ] **Cache** API responses to cut repeat-run latency and rate-limit pressure.
+- [ ] **Pin exact dependency versions** and add CI (lint + the pipeline smoke test).
+- [ ] Let the user tune *N expansions* and *top-K* from the UI.
+
+---
+
+## References
+- [Semantic Scholar Graph API](https://api.semanticscholar.org/api-docs/)
+- [Google Gemini API](https://ai.google.dev/)
+- [Streamlit](https://docs.streamlit.io/)
+
+## License
+MIT — see [LICENSE](LICENSE).

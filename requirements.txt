@@ -1,4 +1,10 @@
-streamlit
-google-genai
-requests
-python-dotenv
+# Pinned to known-compatible lower bounds (real, recent stable releases).
+# To lock the exact versions you tested against, after installing run:
+#   pip freeze | grep -iE 'streamlit|google-genai|requests|python-dotenv' > requirements.txt
+streamlit>=1.40
+google-genai>=1.0
+requests>=2.32
+python-dotenv>=1.0
+
+# Dev / test only:
+pytest>=8.0
