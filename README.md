@@ -53,32 +53,7 @@ plus a one-click **JSON download** of the full structured report.
 
 Sequential pipeline, one orchestrator (`pipeline.py`), graceful fallback at every LLM step:
 
-```
-        user topic
-            │
-            ▼
-┌───────────────────────┐
-│ 1. Query Expander      │  Gemini → 3 alt phrasings  ⇒ 4 queries
-└───────────┬───────────┘     (fallback: original query only)
-            ▼
-┌───────────────────────┐
-│ 2. Search Agent        │  Semantic Scholar ×4, limit 8 each
-└───────────┬───────────┘     ⇒ ≤32 papers, deduped by paper_id
-            ▼
-┌───────────────────────┐
-│ 3. Ranker Agent        │  Gemini scores each paper 1–10
-└───────────┬───────────┘     ⇒ sort desc, keep top 7 (failures→0)
-            ▼
-┌───────────────────────┐
-│ 4. Summarizer          │  Gemini ×7 in PARALLEL (asyncio.gather)
-└───────────┬───────────┘     ⇒ 3-sentence summary per paper
-            ▼
-┌───────────────────────┐
-│ 5. Report Compiler     │  pure Python, no LLM
-└───────────┬───────────┘     ⇒ (markdown, JSON dict)
-            ▼
-     Streamlit UI + JSON download
-```
+![Architecture diagram](docs/architecture.png)
 
 | Component | Technology |
 |---|---|
