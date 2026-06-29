@@ -13,10 +13,7 @@ The contribution isn't a new model; it's a **clean, fault-tolerant agent orchest
 LLM step degrades gracefully (a bad JSON response scores 0 and drops out instead of crashing the
 run), and the slow step (summarization) is parallelized with `asyncio`.
 
-> ### ▶️ [Try the live demo](https://prashantgautam-research-finder.streamlit.app/)
-
-![Demo screenshot](docs/demo.png)
-<!-- TODO: add docs/demo.png — a screenshot or GIF of one full run -->
+**Live demo:** https://prashantgautam-research-finder.streamlit.app/
 
 ---
 
